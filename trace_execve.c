@@ -21,7 +21,7 @@ static char *execve_name = "sys_execve";
 
 static int execve_handler_pre(struct kprobe *p, struct pt_regs *regs) {
     /* only if the it is a valid parameter */
-    if (regs->di != 0 & regs->si != 0) {
+    if (regs->di != 0 && regs->si != 0) {
         /* get the file name to be executed */
         char log[512] = {0};
         char* argv = (char*)(regs->si), *str;
@@ -39,8 +39,8 @@ static int execve_handler_pre(struct kprobe *p, struct pt_regs *regs) {
             printk("Error: too long!\n");
         else {
             copy_from_user(log, str, len);
-            printk("SYS_execve: <%s>(%d) invokes execve(%s)",
-                current->comm, current->pid, log);
+            printk("SYS_execve: <%s>(pid=%d ppid=%d tgid=%d) invokes execve(%s)",
+                current->comm, current->pid, current->parent->pid, current->tgid, log);
         }
     }
 

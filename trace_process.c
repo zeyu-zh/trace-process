@@ -19,14 +19,14 @@
 
 
 static int __init hook_syscall_init(void) {
-    if(0 != kretprobe_clone_init()){
-        printk("Failed to init clone\n");
+    if(0 != kretprobe_fork_init()){
+        printk("Failed to init fork\n");
         return -1;
     }
     
     if(0 != kprobe_execve_init()){
         printk("Failed to init execve\n");
-        kretprobe_clone_exit();
+        kretprobe_fork_exit();
         return -1;
     }
 
@@ -36,7 +36,7 @@ static int __init hook_syscall_init(void) {
 }
 
 static void __exit hook_syscall_exit(void) {
-    kretprobe_clone_exit();
+    kretprobe_fork_exit();
     kprobe_execve_exit();
 }
 
