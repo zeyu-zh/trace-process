@@ -19,13 +19,13 @@
 
 
 static int __init hook_syscall_init(void) {
-    if(0 != kprobe_clone_init()){
+    if(0 != kretprobe_clone_init()){
         printk("Failed to init clone\n");
         return -1;
     }
     
     if(0 != kprobe_execve_init()){
-        printk("Failed to init execve\n")
+        printk("Failed to init execve\n");
         kretprobe_clone_exit();
         return -1;
     }

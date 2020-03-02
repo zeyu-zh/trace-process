@@ -22,7 +22,7 @@ static int clone_entry_handler(struct kretprobe_instance *ri, struct pt_regs *re
 static int clone_ret_handler(struct kretprobe_instance *ri, struct pt_regs *regs){
     unsigned long retval = regs_return_value(regs);
 
-    printk(KERN_INFO "SYS_CLONE: %s(%d) invokes clone() = %d\n",
+    printk("SYS_clone: <%s>(%d) invokes clone() = %d\n",
         current->comm, current->pid, retval);
     
     return 0;
@@ -31,7 +31,7 @@ static int clone_ret_handler(struct kretprobe_instance *ri, struct pt_regs *regs
 static struct kretprobe clone_kretprobe = {
     .handler = clone_ret_handler,
     .entry_handler = clone_entry_handler,
-    .maxactive = 20,
+    .maxactive = 30,
 };
 
 int kretprobe_clone_init(void){
@@ -49,7 +49,7 @@ int kretprobe_clone_exit(void){
 	unregister_kretprobe(&clone_kretprobe);
 	pr_info("kretprobe at %p unregistered\n", clone_kretprobe.kp.addr);
 
-    return 0
+    return 0;
 }
 
 

@@ -14,75 +14,36 @@
 #include <linux/kallsyms.h>
 #include <linux/fs.h>
 #include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include "trace_process.h"
 
 static char *execve_name = "sys_execve";
 
-
-/*
- * count() counts the number of strings in array ARGV. linux-4.15.1
- */
-static int count(struct user_arg_ptr argv, int max) {
-	int i = 0;
-
-	if (argv.ptr.native != NULL) {
-		for (;;) {
-			const char __user *p = get_user_arg_ptr(argv, i);
-
-			if (!p) break;
-			if (IS_ERR(p)) return -EFAULT;
-			if (i >= max) return -E2BIG;
-
-			++i;
-			if (fatal_signal_pending(current)) return -ERESTARTNOHAND;
-			cond_resched();
-		}
-	}
-	return i;
-}
-
 static int execve_handler_pre(struct kprobe *p, struct pt_regs *regs) {
     /* only if the it is a valid parameter */
-    if (regs->di != 0) {
+    if (regs->di != 0 & regs->si != 0) {
         /* get the file name to be executed */
-        struct filename *filename = getname(regs->di);
-        struct user_arg_ptr argv = { .ptr.native = regs->si };
         char log[512] = {0};
-        int log_len = 0;
+        char* argv = (char*)(regs->si), *str;
 
-        int argc = count(argv, MAX_ARG_STRINGS);
-        if (argc < 0)
-            goto out;
+        copy_from_user(&str, argv, sizeof(char*));
+        int len = 0;
 
-        if (current->comm)
-            sprintf(log+log_len, "SyS_execve: %s(%d) invokes execve(%s, [",
-                current->comm, current->pid, filename->name);
+        if(str != NULL)
+            len = strnlen_user(str, MAX_ARG_STRLEN);
         else
-            sprintf(log+log_len, "SyS_execve: UNKNOW_NAME(%d) invokes execve(%s, [",
-                current->pid, filename->name);
-        log_len = strlen(log);
+            return 0;
+        if (!len) return 0;
 
-        while (argc-- > 0) {
-            char __user *str = get_user_arg_ptr(argv, argc);
-            if (IS_ERR(str)) goto out;
-
-            int len = strnlen_user(str, MAX_ARG_STRLEN);
-		    if (!len) goto out;
-
-            copy_from_user(log+log_len, str, len);
-            log_len = log_len + len;
-            log[log_len] = ',';
-            log[log_len+1] = ' ';
-            log_len = log_len + 2;
+        if(len > 500)
+            printk("Error: too long!\n");
+        else {
+            copy_from_user(log, str, len);
+            printk("SYS_execve: <%s>(%d) invokes execve(%s)",
+                current->comm, current->pid, log);
         }
-
-        strcpy(log+log_len-2, "])");
-        printk("%s\n", log);
-
-out:
-        putname(filename);
     }
-    
+
     return 0;
 }
 
@@ -92,7 +53,8 @@ static void execve_handler_post(struct kprobe *p, struct pt_regs *regs,
 
 
 static int execve_handler_fault(struct kprobe *p, struct pt_regs *regs, int trapnr) {
-	pr_info("fault_handler: p->addr = 0x%p, trap #%dn", p->addr, trapnr);
+	//pr_info("fault_handler: p->addr = 0x%p, trap #%dn", p->addr, trapnr);
+    /* no.14 means the page fault exception */
 	/* Return 0 because we don't handle the fault. */
 	return 0;
 }
@@ -112,6 +74,7 @@ int kprobe_execve_init(void){
 		pr_err("register_kprobe failed, returned %d\n", ret);
 		return ret;
 	}
+
     return 0;
 }
 
