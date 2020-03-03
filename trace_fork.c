@@ -71,12 +71,14 @@ static int fork_ret_handler(struct kretprobe_instance *ri, struct pt_regs *regs)
 
     memset(str_flags, 0, 300);
     for (i = 0; i < sizeof(flags_table) / 8; i++) {
-        if(flags & flags_table[i] == flags_table[i]){
+        if((flags & flags_table[i]) == (flags_table[i])){
             sprintf(str_flags + len_str, "%s | ", str_flags_table[i]);
             len_str = len_str + strlen(str_flags_table[i]) + 3;
         }
     }
-    str_flags[len_str-2] = '\0';
+
+    if(len_str != 0)
+        str_flags[len_str-2] = '\0';
 
     printk("SYS_fork: <%s>(pid=%d ppid=%d tgid=%d) invokes fork(%s) = %d\n",
         current->comm, current->pid, current->parent->pid, current->tgid, str_flags, retval);
