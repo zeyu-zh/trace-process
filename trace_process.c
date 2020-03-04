@@ -30,14 +30,22 @@ static int __init hook_syscall_init(void) {
         return -1;
     }
 
+    if(0 != kprobe_setns_init()){
+        printk("Failed to init setns\n");
+        kretprobe_fork_exit();
+        kprobe_execve_exit();
+        return -1;
+    }
+
     printk("Kprobe and kretprobe successfully!\n");
 
 	return 0;
 }
 
 static void __exit hook_syscall_exit(void) {
-    kretprobe_fork_exit();
     kprobe_execve_exit();
+    kprobe_setns_exit();
+    kretprobe_fork_exit();
 }
 
 module_init(hook_syscall_init)

@@ -20,28 +20,27 @@
 static char *setns_name = "sys_setns";
 
 
-uint64_t flags_table[] = {CLONE_NEWNS, CLONE_NEWCGROUP, CLONE_NEWUTS, CLONE_NEWIPC, 
-                          CLONE_NEWUSER, CLONE_NEWPID, CLONE_NEWNET};
+uint64_t nstype_table[] = {CLONE_NEWNS, CLONE_NEWCGROUP, CLONE_NEWUTS, CLONE_NEWIPC, CLONE_NEWUSER, CLONE_NEWPID, CLONE_NEWNET};
 
-char* str_flags_table[] = {"NEWNS", "NEWCGROUP", "NEWUTS", "NEWIPC", "NEWUSER", "NEWPID", "NEWNET"};
+char* str_nstype_table[] = {"NEWNS", "NEWCGROUP", "NEWUTS", "NEWIPC", "NEWUSER", "NEWPID", "NEWNET"};
 
 static int setns_handler_pre(struct kprobe *p, struct pt_regs *regs) {
     /* only if the it is a valid parameter */
-    int fd = regs->di, nstype = regs->si, len_str = 0;
-    char str_flag[200];
+    int fd = regs->di, nstype = regs->si, len_str = 0, i;
+    char str_flags[200];
 
-    memset(str_flag, 0, 200);
-    for (i = 0; i < sizeof(flags_table) / 8; i++) {
-        if((flags & flags_table[i]) == (flags_table[i])){
-            sprintf(str_flags + len_str, "%s | ", str_flags_table[i]);
-            len_str = len_str + strlen(str_flags_table[i]) + 3;
+    memset(str_flags, 0, 200);
+    for (i = 0; i < sizeof(nstype_table) / 8; i++) {
+        if((nstype & nstype_table[i]) == (nstype_table[i])){
+            sprintf(str_flags + len_str, "%s | ", str_nstype_table[i]);
+            len_str = len_str + strlen(str_nstype_table[i]) + 3;
         }
     }
-    if(len_str != 0)
-        str_flag[len_str-2] = '\0';
+    if(len_str > 3)
+        str_flags[len_str-3] = '\0';
 
     printk("SYS_setns: <%s>(pid=%d ppid=%d tgid=%d) invokes setns(%d, %s)",
-        current->comm, current->pid, current->parent->pid, current->tgid, fd, str_flag);
+        current->comm, current->pid, current->parent->pid, current->tgid, fd, str_flags);
     return 0;
 }
 
