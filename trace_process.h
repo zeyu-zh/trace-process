@@ -7,5 +7,6 @@ int kprobe_execve_init(void);
 int kprobe_execve_exit(void);
 int kprobe_setns_init(void);
 int kprobe_setns_exit(void);
-
+int kprobe_unshare_init(void);
+int kprobe_unshare_exit(void);
 #endif

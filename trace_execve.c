@@ -39,7 +39,7 @@ static int execve_handler_pre(struct kprobe *p, struct pt_regs *regs) {
             printk("Error: too long!\n");
         else {
             copy_from_user(log, str, len);
-            printk("SYS_execve: <%s>(pid=%d ppid=%d tgid=%d) invokes execve(%s)",
+            printk("SYS_execve: <%s>(pid=%d ppid=%d tgid=%d) invokes execve(%s)\n",
                 current->comm, current->pid, current->parent->pid, current->tgid, log);
         }
     }

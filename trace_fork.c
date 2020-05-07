@@ -49,7 +49,7 @@
 static char *fork_name = "_do_fork";
 
 uint64_t flags_table[] = {CLONE_NEWNS, CLONE_NEWCGROUP, CLONE_NEWUTS, CLONE_NEWIPC, CLONE_NEWUSER, 
-                        CLONE_NEWPID,CLONE_NEWNET,    CLONE_VM,     CLONE_FS,     CLONE_FILES,
+                        CLONE_NEWPID, CLONE_NEWNET,    CLONE_VM,     CLONE_FS,     CLONE_FILES,
                         CLONE_SIGHAND, CLONE_PTRACE,  CLONE_VFORK,  CLONE_PARENT, CLONE_THREAD,
                         CLONE_SYSVSEM, CLONE_SETTLS,  CLONE_PARENT_SETTID, CLONE_CHILD_CLEARTID,
                         CLONE_DETACHED, CLONE_UNTRACED, CLONE_CHILD_SETTID, CLONE_IO, 17};
@@ -59,6 +59,32 @@ char* str_flags_table[] = {"NEWNS", "NEWCGROUP", "NEWUTS", "NEWIPC", "NEWUSER",
                          "SIGHAND", "PTRACE",  "VFORK",  "PARENT", "THREAD",
                          "SYSVSEM", "SETTLS",  "PARENT_SETTID", "CHILD_CLEARTID",
                          "DETACHED", "UNTRACED", "CHILD_SETTID", "IO", "CSIGNAL"};
+
+int parse_flags(uint64_t flags, char* str_buffer, int len){
+    int i, len_str = 0;
+
+    memset(str_buffer, 0, len);
+    for (i = 0; i < sizeof(flags_table) / 8; i++) {
+        if((flags & flags_table[i]) == (flags_table[i])){
+            if(len_str + strlen(str_flags_table[i]) + 3 >= len - 1){
+                str_buffer[len_str] = '\0';
+                return -1;
+            }
+            sprintf(str_buffer + len_str, "%s | ", str_flags_table[i]);
+            len_str = len_str + strlen(str_flags_table[i]) + 3;
+        }
+    }
+
+    if(len_str != 0 && len_str < len)
+        str_buffer[len_str-2] = '\0';
+    else{
+        str_buffer[len_str] = '\0';
+        return -1;
+    }
+        
+
+    return 0; 
+}
 
 /* per-instance private data */
 struct my_data {
@@ -88,47 +114,32 @@ static int fork_ret_handler(struct kretprobe_instance *ri, struct pt_regs *regs)
     struct my_data *data = (struct my_data *)ri->data;
     uint64_t flags = data->flags;
     char str_flags[350];
-    int len_str = 0, i, parent_tid, child_tid;
-    int __user *parent_tidptr = data->parent_tidptr, *child_tidptr = data->child_tidptr;
+    int len_str = 0, i;
 
+    // int parent_tid, child_tid;
+    // int __user *parent_tidptr = data->parent_tidptr, *child_tidptr = data->child_tidptr;
+    // if ((flags & CLONE_PARENT_SETTID) == (CLONE_PARENT_SETTID)) {
+    //     if (parent_tidptr != NULL) {
+    //         copy_from_user(&parent_tid, parent_tidptr, sizeof(int));
+    //         sprintf(str_flags + len_str, "ptid=%d", parent_tid);
+    //         len_str = len_str + strlen(str_flags + len_str);
+    //     } else {
+    //         sprintf(str_flags + len_str, "ptid=0");
+    //         len_str = len_str + 6;
+    //     }
+    // }
+    // if((flags & CLONE_CHILD_SETTID) == (CLONE_CHILD_SETTID)){
+    //     if (child_tidptr != NULL) {
+    //         copy_from_user(&child_tid, child_tidptr, sizeof(int));
+    //         sprintf(str_flags + len_str, "ctid=%d ", child_tid);
+    //         len_str = len_str + strlen(str_flags + len_str);
+    //     } else {
+    //         sprintf(str_flags + len_str, "ctid=0");
+    //         len_str = len_str + 6;
+    //     }
+    // }
 
-    memset(str_flags, 0, 350);
-    for (i = 0; i < sizeof(flags_table) / 8; i++) {
-        if((flags & flags_table[i]) == (flags_table[i])){
-            sprintf(str_flags + len_str, "%s | ", str_flags_table[i]);
-            len_str = len_str + strlen(str_flags_table[i]) + 3;
-        }
-    }
-
-
-    if(len_str != 0)
-        str_flags[len_str-2] = '\0';
-    len_str = strlen(str_flags);
-
-    if ((flags & CLONE_PARENT_SETTID) == (CLONE_PARENT_SETTID)) {
-        if (parent_tidptr != NULL) {
-            copy_from_user(&parent_tid, parent_tidptr, sizeof(int));
-            sprintf(str_flags + len_str, "ptid=%d", parent_tid);
-            len_str = len_str + strlen(str_flags + len_str);
-        } else {
-            sprintf(str_flags + len_str, "ptid=0");
-            len_str = len_str + 6;
-        }
-    }
-
-    if((flags & CLONE_CHILD_SETTID) == (CLONE_CHILD_SETTID)){
-        if (child_tidptr != NULL) {
-            copy_from_user(&child_tid, child_tidptr, sizeof(int));
-            sprintf(str_flags + len_str, "ctid=%d ", child_tid);
-            len_str = len_str + strlen(str_flags + len_str);
-        } else {
-            sprintf(str_flags + len_str, "ctid=0");
-            len_str = len_str + 6;
-        }
-    }
-
-
-
+    parse_flags(flags, str_flags, 350);
     printk("SYS_fork: <%s>(pid=%d ppid=%d tgid=%d) invokes fork(%s) = %d\n",
         current->comm, current->pid, current->parent->pid, current->tgid, str_flags, retval);
     
@@ -145,7 +156,7 @@ int kretprobe_fork_init(void){
     fork_kretprobe.kp.symbol_name = fork_name;
     int ret = register_kretprobe(&fork_kretprobe);
 	if (ret < 0) {
-		pr_err("register_kretprobe failed, returned %d\n", ret);
+		pr_err("register_kretprobe(fork) failed, returned %d\n", ret);
 		return ret;
 	}
 
@@ -154,7 +165,7 @@ int kretprobe_fork_init(void){
 
 int kretprobe_fork_exit(void){
 	unregister_kretprobe(&fork_kretprobe);
-	pr_info("kretprobe at %p unregistered\n", fork_kretprobe.kp.addr);
+	pr_info("kretprobe(fork) at %p unregistered\n", fork_kretprobe.kp.addr);
 
     return 0;
 }

@@ -23,23 +23,16 @@ static char *setns_name = "sys_setns";
 uint64_t nstype_table[] = {CLONE_NEWNS, CLONE_NEWCGROUP, CLONE_NEWUTS, CLONE_NEWIPC, CLONE_NEWUSER, CLONE_NEWPID, CLONE_NEWNET};
 
 char* str_nstype_table[] = {"NEWNS", "NEWCGROUP", "NEWUTS", "NEWIPC", "NEWUSER", "NEWPID", "NEWNET"};
+extern int parse_flags(uint64_t flags, char* str_buffer, int len);
 
 static int setns_handler_pre(struct kprobe *p, struct pt_regs *regs) {
     /* only if the it is a valid parameter */
-    int fd = regs->di, nstype = regs->si, len_str = 0, i;
-    char str_flags[200];
+    int fd = regs->di, len_str = 0, i;
+    char str_flags[350];
+    uint64_t nstype = nstype = regs->si;
 
-    memset(str_flags, 0, 200);
-    for (i = 0; i < sizeof(nstype_table) / 8; i++) {
-        if((nstype & nstype_table[i]) == (nstype_table[i])){
-            sprintf(str_flags + len_str, "%s | ", str_nstype_table[i]);
-            len_str = len_str + strlen(str_nstype_table[i]) + 3;
-        }
-    }
-    if(len_str > 3)
-        str_flags[len_str-3] = '\0';
-
-    printk("SYS_setns: <%s>(pid=%d ppid=%d tgid=%d) invokes setns(%d, %s)",
+    parse_flags(nstype, str_flags, 350);
+    printk("SYS_setns: <%s>(pid=%d ppid=%d tgid=%d) invokes setns(%d, %s)\n",
         current->comm, current->pid, current->parent->pid, current->tgid, fd, str_flags);
     return 0;
 }
@@ -68,7 +61,7 @@ int kprobe_setns_init(void){
     setns_kprobe.symbol_name = setns_name;
 	int ret = register_kprobe(&setns_kprobe);
 	if (ret < 0) {
-		pr_err("register_kprobe failed, returned %d\n", ret);
+		pr_err("register_kprobe(setns) failed, returned %d\n", ret);
 		return ret;
 	}
 
@@ -77,7 +70,7 @@ int kprobe_setns_init(void){
 
 int kprobe_setns_exit(void){
 	unregister_kprobe(&setns_kprobe);
-	pr_info("kprobe at %p unregistered\n", setns_kprobe.addr);
+	pr_info("kprobe(setns) at %p unregistered\n", setns_kprobe.addr);
 
     return 0;
 }
